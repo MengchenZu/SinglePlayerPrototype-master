@@ -35,10 +35,8 @@ BasicGame.Gamebonus.prototype = {
         this.fruitnumber = 1;
         this.fertilizernumber = 0;
         this.seednumber = 0;
-        this.count = 0;
-        this.time = 100;
         this.emitterspeed = 320;
-        this.emittertime = 150;
+        this.emittertime = 120;
 
 
         // Honestly, just about anything could go here. It's YOUR game after all. Eat your heart out!
@@ -157,9 +155,10 @@ BasicGame.Gamebonus.prototype = {
         this.timerbar = this.game.add.sprite(64, 400, 'itembar');
         this.timerbar.anchor.setTo(0.5, 0.5);
         this.timerbar.scale.setTo(0.16, 0.64);
-        this.numbertime = this.game.add.text(62, 402, this.time,
+        this.numbertime = this.game.add.text(62, 402, 100,
             { font: 'bold 26px Arial', fill: '#ff0000' });
         this.numbertime.anchor.setTo(0.5, 0.5);
+        this.game.time.reset();
 
         //bonus
         this.fertilizers = this.game.add.group();
@@ -171,6 +170,10 @@ BasicGame.Gamebonus.prototype = {
         this.marker = new Phaser.Point();
         this.directions = [ null, null, null, null, null];
         this.directionObject = [0, 0, 0, 0, 0];
+
+        //checkexplosion
+        this.markerexplosion = new Phaser.Point();
+        this.directionexplosion = null;
 
         /**
         // Keyboard
@@ -215,10 +218,6 @@ BasicGame.Gamebonus.prototype = {
         }, this);
         **/
 
-        //  Create our Timer
-        /*timer = this.game.time.create(false);
-        timer.start();*/
-
         this.cursors = this.game.input.keyboard.createCursorKeys();
         this.hitButton = this.game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
     },
@@ -252,18 +251,189 @@ BasicGame.Gamebonus.prototype = {
 
         this.move();
 
-        this.count++;
-        if(this.count == 60) {
-            this.timer();
-        }
-
-        //timer.loop(1000, this.updateCounter(), this);
+        this.timer();
     },
 
-    /*updateCounter: function() {
+    additem: function(x, y) {
+        var z = this.game.rnd.integerInRange(1,10);
+        if(1 <= z && z <= 5) {
+            var fertilizer = this.fertilizers.create(x + 16, y + 16, 'fertilizer');
+            fertilizer.anchor.setTo(0.5, 0.5);
+            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, fertilizer);
+            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, fertilizer);
+        }
+        else if(z <= 6) {
+            var seed = this.seeds.create(x + 16, y + 16, 'seed');
+            seed.anchor.setTo(0.5, 0.5);
+            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, seed);
+            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, seed);
+        }
+    },
 
-        total++;
-    },*/
+    addnumberfertilizer: function(player, fertilizer) {
+        this.fertilizernumber++;
+        this.game.global.fertilizernumber++;
+        this.numberfertilizer.text = this.fertilizernumber;
+        fertilizer.kill();
+    },
+
+    addnumberseed: function(player, seed) {
+        this.seednumber++;
+        this.game.global.seednumber++;
+        this.numberseed.text = this.seednumber;
+        seed.kill();
+    },
+
+    checkSurrounding: function() {
+        this.directionObject = [0, 0, 0, 0, 0];
+
+        //Surrounded
+        this.marker.x = this.game.math.snapToFloor(Math.floor(this.player.x), 32) / 32;
+        this.marker.y = this.game.math.snapToFloor(Math.floor(this.player.y), 32) / 32;
+
+        var i = this.blockedLayer.index;
+        var x = this.marker.x;
+        var y = this.marker.y;
+
+        this.directions[1] = this.map.getTileLeft(i, x, y);
+        this.directions[2] = this.map.getTileRight(i, x, y);
+        this.directions[3] = this.map.getTileAbove(i, x, y);
+        this.directions[4] = this.map.getTileBelow(i, x, y);
+
+        var p = [(x - 1) * 32, y * 32];
+        var q = [(x + 1) * 32, y * 32];
+        var s = [x * 32, (y - 1) * 32];
+        var t = [x * 32, (y + 1) * 32];
+
+        for(i = 0;i < this.obstacles.length; i++) {
+            this.obstacle = this.obstacles.getAt(i);
+            var a = this.obstacle.x;
+            var b = this.obstacle.y;
+            var c = this.obstacle.alive;
+
+            if(c === false) {
+                continue;
+            }
+
+            if(a === p[0] && b === p[1]) {
+                this.directionObject[1] = 1;
+            }
+            if(a === q[0] && b === q[1]) {
+                this.directionObject[2] = 1;
+            }
+            if(a === s[0] && b === s[1]) {
+                this.directionObject[3] = 1;
+            }
+            if(a === t[0] && b === t[1]) {
+                this.directionObject[4] = 1;
+            }
+        }
+    },
+
+    collisionHandler: function(berry, obstacle) {
+        if(obstacle.alive == true) {
+            var x = obstacle.x;
+            var y = obstacle.y;
+            this.game.time.events.add(Phaser.Timer.SECOND, this.additem, this, x, y);
+        }
+        berry.kill();
+        obstacle.animations.play('explode', 6, false, true);
+        obstacle.alive = false;
+    },
+
+    disappear: function (item) {
+        item.kill();
+    },
+
+    disappearobstacle: function (obstacle) {
+        if(obstacle.alive == true) {
+            var x = obstacle.x;
+            var y = obstacle.y;
+            this.game.time.events.add(Phaser.Timer.SECOND, this.additem, this, x, y);
+        }
+        obstacle.animations.play('explode', 6, false, true);
+        obstacle.alive = false;
+    },
+
+    explosion: function(x, y, berry) {
+        this.berries.remove(berry);
+
+        this.emitter.x = x;
+        this.emitter.y = y;
+
+        this.emitter.makeParticles('p_berry', 1, 10, true, true);
+        this.emitter.explode(500, 10);
+
+        this.fruitnumber++;
+    },
+
+    explosioncross: function(x, y, berry) {
+        this.berries.remove(berry);
+        this.fruitnumber++;
+
+        this.emitter1.x = x;
+        this.emitter1.y = y;
+        this.emitter1.start(true, this.emittertime, null, 1);
+        this.emitter2.x = x;
+        this.emitter2.y = y;
+        this.emitter2.start(true, this.emittertime, null, 1);
+        this.emitter3.x = x;
+        this.emitter3.y = y;
+        this.emitter3.start(true, this.emittertime, null, 1);
+        this.emitter4.x = x;
+        this.emitter4.y = y;
+        this.emitter4.start(true, this.emittertime, null, 1);
+    },
+
+    explosiontest: function(x, y, berry) {
+        this.berries.remove(berry);
+        this.fruitnumber++;
+        var p = x - 16;
+        var q = y - 16;
+        var r = this.emitterspeed * this.emittertime / 1000;
+
+        this.markerexplosion.x = this.game.math.snapToFloor(Math.floor(x), 32) / 32;
+        this.markerexplosion.y = this.game.math.snapToFloor(Math.floor(y), 32) / 32;
+        var k = this.blockedLayer.index;
+        var x0 = this.markerexplosion.x;
+        var y0 = this.markerexplosion.y;
+        this.directionexplosion = this.map.getTile(x0, y0, k);
+        var z = this.directionexplosion.index;
+
+        var flag1 = Math.floor(this.player.x / 32) === Math.floor(x / 32);
+        var flag2 = Math.floor(this.player.y / 32) === Math.floor(y / 32);
+        var j;
+        var flag3 = 0;
+        var flag4 = 0;
+        if(flag1 == 1 && this.player.y <= y + r && this.player.y >= y - r) {
+            this.quitGame();
+        }
+        else if(flag2 == 1 && this.player.x <= x + r && this.player.x >= x - r) {
+            this.quitGame();
+        }
+
+        for(var i = 0;i < this.obstacles.length; i++) {
+            this.obstacle = this.obstacles.getAt(i);
+            var c = this.obstacle.alive;
+
+            if(c === false) {
+                continue;
+            }
+            var a = this.obstacle.x;
+            var b = this.obstacle.y;
+
+            if(a === p && b <= q + r && b >= q - r) {
+                this.game.time.events.add(Phaser.Timer.SECOND * Math.abs(b - q) /32 * 0.1, this.disappearobstacle, this, this.obstacle);
+            }
+            else if(b === q && a <= p + r && a >= p - r) {
+                this.game.time.events.add(Phaser.Timer.SECOND * Math.abs(a - p) /32 * 0.1, this.disappearobstacle, this, this.obstacle);
+            }
+        }
+    },
+
+    flicker: function (item) {
+        this.game.add.tween(item.scale).to({x: 0.3, y: 0.3}, 500).to({x: 1.0, y: 1.0}, 500).start().loop();
+    },
 
     move: function() {
     // Reset the players velocity (Movement)
@@ -338,7 +508,7 @@ BasicGame.Gamebonus.prototype = {
             }
         }
         else if(flagy != 1) {
-            if (this.game.global.statey == 1) {
+             if (this.game.global.statey == 1) {
                 this.player.animations.play('down', 10, true);
                 this.player.body.velocity.y = this.speed;
             }
@@ -368,55 +538,25 @@ BasicGame.Gamebonus.prototype = {
         }
     },
 
-    checkSurrounding: function() {
-        this.directionObject = [0, 0, 0, 0, 0];
+    releaseBerry: function() {
+        var x = Math.floor(this.player.x / 32) * 32 + 16;
+        var y = Math.floor(this.player.y / 32) * 32 + 16;
 
-        //Surrounded
-        this.marker.x = this.game.math.snapToFloor(Math.floor(this.player.x), 32) / 32;
-        this.marker.y = this.game.math.snapToFloor(Math.floor(this.player.y), 32) / 32;
-
-        var i = this.blockedLayer.index;
-        var x = this.marker.x;
-        var y = this.marker.y;
-
-        this.directions[1] = this.map.getTileLeft(i, x, y);
-        this.directions[2] = this.map.getTileRight(i, x, y);
-        this.directions[3] = this.map.getTileAbove(i, x, y);
-        this.directions[4] = this.map.getTileBelow(i, x, y);
-
-        var p = [(x - 1) * 32, y * 32];
-        var q = [(x + 1) * 32, y * 32];
-        var s = [x * 32, (y - 1) * 32];
-        var t = [x * 32, (y + 1) * 32];
-
-        for(i = 0;i < this.obstacles.length; i++) {
-            this.obstacle = this.obstacles.getAt(i);
-            var a = this.obstacle.x;
-            var b = this.obstacle.y;
-            var c = this.obstacle.alive;
+        var flag = 0;
+        for(var i = 0;i < this.berries.length; i++) {
+            this.berryeach = this.berries.getAt(i);
+            var a = this.berryeach.x;
+            var b = this.berryeach.y;
+            var c = this.berryeach.alive;
 
             if(c === false) {
                 continue;
             }
 
-            if(a === p[0] && b === p[1]) {
-                this.directionObject[1] = 1;
-            }
-            if(a === q[0] && b === q[1]) {
-                this.directionObject[2] = 1;
-            }
-            if(a === s[0] && b === s[1]) {
-                this.directionObject[3] = 1;
-            }
-            if(a === t[0] && b === t[1]) {
-                this.directionObject[4] = 1;
+            if(x === a && y === b) {
+                flag = 1;
             }
         }
-    },
-
-    releaseBerry: function() {
-        var x = Math.floor(this.player.x / 32) * 32 + 16;
-        var y = Math.floor(this.player.y / 32) * 32 + 16;
 
         if(this.fruitnumber > 0) {
             var berry = this.berries.create(x, y, 'berry');
@@ -424,97 +564,19 @@ BasicGame.Gamebonus.prototype = {
             var childIndex = this.berries.getChildIndex(berry);
             // Basic Timed Event
             this.game.add.tween(berry.scale).to({x: 0.3, y: 0.3}, 500).to({x: 1.0, y: 1.0}, 500).start().loop();
-            this.game.time.events.add(Phaser.Timer.SECOND * 2, this.explosioncross, this, x, y, berry);
+            //this.game.time.events.add(Phaser.Timer.SECOND * 2, this.explosioncross, this, x, y, berry);
+            this.game.time.events.add(Phaser.Timer.SECOND * 2, this.explosiontest, this, x, y, berry);
             this.fruitnumber--;
         }
     },
 
-    explosion: function(x, y, berry) {
-        this.berries.remove(berry);
-
-        this.emitter.x = x;
-        this.emitter.y = y;
-
-        this.emitter.makeParticles('p_berry', 1, 10, true, true);
-        this.emitter.explode(500, 10);
-
-        this.fruitnumber++;
-    },
-
-    explosioncross: function(x, y, berry) {
-        this.berries.remove(berry);
-        this.fruitnumber++;
-
-        this.emitter1.x = x;
-        this.emitter1.y = y;
-        this.emitter1.start(true, this.emittertime, null, 1);
-        this.emitter2.x = x;
-        this.emitter2.y = y;
-        this.emitter2.start(true, this.emittertime, null, 1);
-        this.emitter3.x = x;
-        this.emitter3.y = y;
-        this.emitter3.start(true, this.emittertime, null, 1);
-        this.emitter4.x = x;
-        this.emitter4.y = y;
-        this.emitter4.start(true, this.emittertime, null, 1);
-    },
-
-    collisionHandler: function(berry, obstacle) {
-        if(obstacle.alive == true) {
-            var x = obstacle.x;
-            var y = obstacle.y;
-            this.game.time.events.add(Phaser.Timer.SECOND, this.additem, this, x, y, obstacle);
-        }
-        berry.kill();
-        obstacle.animations.play('explode', 6, false, true);
-        obstacle.alive = false;
-    },
-
-    additem: function(x, y) {
-        var z = this.game.rnd.integerInRange(1,10);
-        if(1 <= z && z <= 5) {
-            var fertilizer = this.fertilizers.create(x + 16, y + 16, 'fertilizer');
-            fertilizer.anchor.setTo(0.5, 0.5);
-            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, fertilizer);
-            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, fertilizer);
-        }
-        else if(z <= 6) {
-            var seed = this.seeds.create(x + 16, y + 16, 'seed');
-            seed.anchor.setTo(0.5, 0.5);
-            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, seed);
-            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, seed);
-        }
-    },
-
-    flicker: function (item) {
-        this.game.add.tween(item.scale).to({x: 0.3, y: 0.3}, 500).to({x: 1.0, y: 1.0}, 500).start().loop();
-    },
-
-    disappear: function (item) {
-      item.kill();
-    },
-
-    addnumberfertilizer: function(player, fertilizer) {
-        this.fertilizernumber++;
-        this.game.global.fertilizernumber++;
-        this.numberfertilizer.text = this.fertilizernumber;
-        fertilizer.kill();
-    },
-
-    addnumberseed: function(player, seed) {
-        this.seednumber++;
-        this.game.global.seednumber++;
-        this.numberseed.text = this.seednumber;
-        seed.kill();
-    },
-
     timer: function() {
-        this.time -= 1;
-        if(this.time === -1) {
+        if(100 - Math.floor(this.game.time.totalElapsedSeconds()) < 0) {
             this.quitGame();
         }
-        this.numbertime.text = this.time;
-        this.count = 0;
+        else {
+            this.numbertime.text = 100 - Math.floor(this.game.time.totalElapsedSeconds());
+        }
     },
 
     quitGame: function (pointer) {
@@ -526,8 +588,6 @@ BasicGame.Gamebonus.prototype = {
     },
 
     render: function() {
-        //this.game.debug.text('Time until event: ' + timer.duration.toFixed(0), 32, 32);
-        //this.game.debug.text('Loop Count: ' + total, 32, 64);
         this.game.debug.body(this.player);
     }
 };

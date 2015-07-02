@@ -34,10 +34,8 @@ BasicGame.Gameadvanture.prototype = {
         this.enhancenumber = 0;
         this.treenumber = 0;
         this.invinciblenumber = 0;
-        this.count = 0;
-        this.time = 100;
         this.emitterspeed = 320;
-        this.emittertime = 150;
+        this.emittertime = 120;
 
         // Honestly, just about anything could go here. It's YOUR game after all. Eat your heart out!
 
@@ -163,11 +161,12 @@ BasicGame.Gameadvanture.prototype = {
         this.timerbar = this.game.add.sprite(64, 400, 'itembar');
         this.timerbar.anchor.setTo(0.5, 0.5);
         this.timerbar.scale.setTo(0.16, 0.64);
-        this.numbertime = this.game.add.text(62, 402, this.time,
+        this.numbertime = this.game.add.text(62, 402, 100,
             { font: 'bold 26px Arial', fill: '#ff0000' });
         this.numbertime.anchor.setTo(0.5, 0.5);
+        this.game.time.reset();
 
-        //test
+        //itemgroup
         this.shoes = this.game.add.group();
         this.shoes.enableBody = true;
         this.enhances = this.game.add.group();
@@ -176,11 +175,18 @@ BasicGame.Gameadvanture.prototype = {
         this.trees.enableBody = true;
         this.invincibles = this.game.add.group();
         this.invincibles.enableBody = true;
+        this.invincibletween = this.game.add.tween(this.player.scale).to({x: 0.8, y: 0.8}, 500).to({x: 1.0, y: 1.0}, 500).loop();
+        this.poisons = this.game.add.group();
+        this.poisons.enableBody = true;
 
         //Surrounding
         this.marker = new Phaser.Point();
         this.directions = [ null, null, null, null, null];
         this.directionObject = [0, 0, 0, 0, 0];
+
+        //Explosiontest
+        this.markerexplosion = new Phaser.Point();
+        //use directions[0]
 
         /**
          // Keyboard
@@ -237,11 +243,13 @@ BasicGame.Gameadvanture.prototype = {
             this.game.physics.arcade.overlap(this.emitter, this.player, this.quitGame, null, this);
         }
 
+        //item
         this.game.physics.arcade.overlap(this.emitter, this.obstacles, this.collisionHandler, null, this);
         this.game.physics.arcade.overlap(this.player, this.shoes, this.addnumbershoe, null, this);
         this.game.physics.arcade.overlap(this.player, this.enhances, this.addnumberenhance, null, this);
         this.game.physics.arcade.overlap(this.player, this.trees, this.addnumbertree, null, this);
         this.game.physics.arcade.overlap(this.player, this.invincibles, this.addnumberinvincible, null, this);
+        this.game.physics.arcade.overlap(this.player, this.poisons, this.addnumberpoison, null, this);
 
         this.game.physics.arcade.collide(this.player, this.blockedLayer);
         this.game.physics.arcade.collide(this.player, this.obstacles);
@@ -272,11 +280,337 @@ BasicGame.Gameadvanture.prototype = {
 
         this.move();
 
-        this.count++;
-        if(this.count == 60) {
-            this.timer();
+        this.timer();
+    },
+
+    additem: function(x, y) {
+        var z = this.game.rnd.integerInRange(1,10);
+        if(z >= 1 && z <= 2) {
+            var shoe = this.shoes.create(x + 16, y + 16, 'shoe');
+            shoe.anchor.setTo(0.5, 0.5);
+            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, shoe);
+            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, shoe);
+        }
+        else if(z >= 3 && z <= 4) {
+            var tree = this.trees.create(x + 16, y + 16, 'tree');
+            tree.anchor.setTo(0.5, 0.5);
+            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, tree);
+            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, tree);
+        }
+        else if(z >= 5 && z <= 6) {
+            var enhance = this.enhances.create(x + 16, y + 16, 'enhance');
+            enhance.anchor.setTo(0.5, 0.5);
+            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, enhance);
+            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, enhance);
+        }
+        else if(z >= 7 && z <= 8) {
+            var invincible = this.invincibles.create(x + 16, y + 16, 'invincible');
+            invincible.anchor.setTo(0.5, 0.5);
+            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, invincible);
+            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, invincible);
+        }
+        else if(z == 9) {
+            var poison = this.poisons.create(x + 16, y + 16, 'poison');
+            poison.anchor.setTo(0.5, 0.5);
+            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, poison);
+            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, poison);
+        }
+    },
+
+    addnumberenhance: function(player, enhance) {
+        this.enhancenumber++;
+        this.numberenhance.text = this.enhancenumber;
+        this.emittertime += 100;
+        enhance.kill();
+    },
+
+    addnumberinvincible: function(player, invincible) {
+        this.invinciblenumber = 1;
+        this.numberinvincible.text = this.invinciblenumber;
+        this.invincibletween = this.game.add.tween(this.player.scale).to({x: 0.8, y: 0.8}, 500).to({x: 1.0, y: 1.0}, 500).start().loop();
+        this.game.time.events.add(Phaser.Timer.SECOND * 5, this.stopinvincible, this,this.invincibletween);
+        invincible.kill();
+    },
+
+    addnumberpoison: function(player, poison) {
+        this.shoenumber = 0;
+        this.numbershoe.text = this.shoenumber;
+        this.speed = 100;
+        this.enhancenumber = 0;
+        this.numberenhance.text = this.enhancenumber;
+        this.emittertime = 100;
+        this.treenumber = 0;
+        this.numbertree.text = this.treenumber;
+        this.fruitnumber = 1;
+        this.invincibletween.stop();
+        this.invinciblenumber = 0;
+        this.numberinvincible.text = this.invinciblenumber;
+        poison.kill();
+    },
+
+    addnumbershoe: function(player, shoe) {
+        if(this.shoenumber < 4) {
+            this.shoenumber++;
+            this.numbershoe.text = this.shoenumber;
+            this.speed += 20;
+        }
+        shoe.kill();
+    },
+
+    addnumbertree: function(player, tree) {
+        this.treenumber++;
+        this.numbertree.text = this.treenumber;
+        this.fruitnumber++;
+        tree.kill();
+    },
+
+    checkSurrounding: function() {
+        this.directionObject = [0, 0, 0, 0, 0];
+
+        //Surrounded
+        this.marker.x = this.game.math.snapToFloor(Math.floor(this.player.x), 32) / 32;
+        this.marker.y = this.game.math.snapToFloor(Math.floor(this.player.y), 32) / 32;
+
+        var i = this.blockedLayer.index;
+        var x = this.marker.x;
+        var y = this.marker.y;
+
+        this.directions[1] = this.map.getTileLeft(i, x, y);
+        this.directions[2] = this.map.getTileRight(i, x, y);
+        this.directions[3] = this.map.getTileAbove(i, x, y);
+        this.directions[4] = this.map.getTileBelow(i, x, y);
+
+        var p = [(x - 1) * 32, y * 32];
+        var q = [(x + 1) * 32, y * 32];
+        var s = [x * 32, (y - 1) * 32];
+        var t = [x * 32, (y + 1) * 32];
+
+        for(i = 0;i < this.obstacles.length; i++) {
+            this.obstacle = this.obstacles.getAt(i);
+            var a = this.obstacle.x;
+            var b = this.obstacle.y;
+            var c = this.obstacle.alive;
+
+            if(c === false) {
+                continue;
+            }
+
+            if(a === p[0] && b === p[1]) {
+                this.directionObject[1] = 1;
+            }
+            if(a === q[0] && b === q[1]) {
+                this.directionObject[2] = 1;
+            }
+            if(a === s[0] && b === s[1]) {
+                this.directionObject[3] = 1;
+            }
+            if(a === t[0] && b === t[1]) {
+                this.directionObject[4] = 1;
+            }
+        }
+    },
+
+    collisionHandler: function(berry, obstacle) {
+        if(obstacle.alive == true) {
+            var x = obstacle.x;
+            var y = obstacle.y;
+            this.game.time.events.add(Phaser.Timer.SECOND, this.additem, this, x, y);
+        }
+        berry.kill();
+        obstacle.animations.play('explode', 6, false, true);
+        obstacle.alive = false;
+    },
+
+    disappear: function (item) {
+        item.kill();
+    },
+
+    disappearobstacle: function (obstacle) {
+        if(obstacle.alive == true) {
+            var x = obstacle.x;
+            var y = obstacle.y;
+            this.game.time.events.add(Phaser.Timer.SECOND, this.additem, this, x, y);
+        }
+        obstacle.animations.play('explode', 6, false, true);
+        obstacle.alive = false;
+    },
+
+    explosion: function(x, y, berry) {
+        this.berries.remove(berry);
+
+        this.emitter.x = x;
+        this.emitter.y = y;
+
+        this.emitter.makeParticles('p_berry', 1, 10, true, true);
+        this.emitter.explode(500, 10);
+
+        this.fruitnumber++;
+    },
+
+    explosioncross: function(x, y, berry) {
+        this.berries.remove(berry);
+        this.fruitnumber++;
+
+        this.emitter1.x = x;
+        this.emitter1.y = y;
+        this.emitter1.start(true, this.emittertime, null, 1);
+        this.emitter2.x = x;
+        this.emitter2.y = y;
+        this.emitter2.start(true, this.emittertime, null, 1);
+        this.emitter3.x = x;
+        this.emitter3.y = y;
+        this.emitter3.start(true, this.emittertime, null, 1);
+        this.emitter4.x = x;
+        this.emitter4.y = y;
+        this.emitter4.start(true, this.emittertime, null, 1);
+    },
+
+    explosiontest: function(x, y, berry) {
+        this.berries.remove(berry);
+        this.fruitnumber++;
+        var p = x - 16;
+        var q = y - 16;
+        var p1 = p / 32;
+        var q1 = q / 32;
+        var r = this.emitterspeed * this.emittertime / 1000;
+
+        var flag1 = Math.floor(this.player.x / 32) === Math.floor(x / 32);
+        var flag2 = Math.floor(this.player.y / 32) === Math.floor(y / 32);
+        var flag3 = 1;
+        var flag4 = 1;
+        var j;
+        var k;
+        var x0;
+        var y0;
+
+        this.markerexplosion.x = this.game.math.snapToFloor(Math.floor(this.player.x), 32) / 32;
+        this.markerexplosion.y = this.game.math.snapToFloor(Math.floor(this.player.y), 32) / 32;
+        x0 = this.markerexplosion.x;
+        y0 = this.markerexplosion.y;
+        if(flag1 == 1 && this.player.y <= y + r && this.player.y >= y - r && this.invinciblenumber === 0) {
+            if(this.player.y <= y + r && this.player.y >= y) {
+                for(j = q1 + 1;j < y0; j++) {
+                    k = this.blockedLayer.index;
+                    this.directions[0] = this.map.getTile(x0, j, k);
+                    console.log(x0, j, this.directions[0].index);
+                    if(this.directions[0].index === 8) {
+                        flag3 = 0;
+                        break;
+                    }
+                }
+            }
+            if(this.player.y >= y - r && this.player.y <= y) {
+                for(j = q1 - 1;j > y0; j--) {
+                    k = this.blockedLayer.index;
+                    this.directions[0] = this.map.getTile(x0, j, k);
+                    console.log(x0, j, this.directions[0].index);
+                    if(this.directions[0].index === 8) {
+                        flag3 = 0;
+                        break;
+                    }
+                }
+            }
+            if(flag3 === 1) {
+               this.quitGame();
+            }
+        }
+        else if(flag2 == 1 && this.player.x <= x + r && this.player.x >= x - r && this.invinciblenumber === 0) {
+            if(this.player.x <= x + r && this.player.x >= x) {
+                for(j = p1 + 1;j < x0; j++) {
+                    k = this.blockedLayer.index;
+                    this.directions[0] = this.map.getTile(j, y0, k);
+                    console.log(j, y0, this.directions[0].index);
+                    if(this.directions[0].index === 8) {
+                        flag4 = 0;
+                        break;
+                    }
+                }
+            }
+            if(this.player.x >= x - r && this.player.x <= x) {
+                for(j = p1 - 1;j > x0; j--) {
+                    k = this.blockedLayer.index;
+                    this.directions[0] = this.map.getTile(j, y0, k);
+                    console.log(j, y0, this.directions[0].index);
+                    if(this.directions[0].index === 8) {
+                        flag4 = 0;
+                        break;
+                    }
+                }
+            }
+            if(flag4 === 1) {
+                this.quitGame();
+            }
         }
 
+        for(var i = 0;i < this.obstacles.length; i++) {
+            this.obstacle = this.obstacles.getAt(i);
+            var c = this.obstacle.alive;
+
+            if(c === false) {
+                continue;
+            }
+            var a = this.obstacle.x;
+            var b = this.obstacle.y;
+            var a1 = a / 32;
+            var b1 = b / 32;
+            flag3 = 1;
+            flag4 = 1;
+
+            if(a === p && b <= q + r && b >= q - r) {
+                if(b <= q + r && b >= q) {
+                    for(j = q1 + 1;j < b1; j++) {
+                        k = this.blockedLayer.index;
+                        this.directions[0] = this.map.getTile(a1, j, k);
+                        if(this.directions[0].index === 8) {
+                            flag3 = 0;
+                            break;
+                        }
+                    }
+                }
+                if(b >= q - r && b <= q) {
+                    for(j = q1 - 1;j > b1; j--) {
+                        k = this.blockedLayer.index;
+                        this.directions[0] = this.map.getTile(a1, j, k);
+                        if(this.directions[0].index === 8) {
+                            flag3 = 0;
+                            break;
+                        }
+                    }
+                }
+                if(flag3 === 1) {
+                    this.game.time.events.add(Phaser.Timer.SECOND * Math.abs(b - q) / 32 * 0.1, this.disappearobstacle, this, this.obstacle);
+                }
+            }
+            else if(b === q && a <= p + r && a >= p - r) {
+                if(a <= p + r && a >= p) {
+                    for(j = p1 + 1;j < a1; j++) {
+                        k = this.blockedLayer.index;
+                        this.directions[0] = this.map.getTile(b1, j, k);
+                        if(this.directions[0].index === 8) {
+                            flag4 = 0;
+                            break;
+                        }
+                    }
+                }
+                if(a >= p - r && a <= p) {
+                    for(j = p1 - 1;j > a1; j--) {
+                        k = this.blockedLayer.index;
+                        this.directions[0] = this.map.getTile(b1, j, k);
+                        if(this.directions[0].index === 8) {
+                            flag4 = 0;
+                            break;
+                        }
+                    }
+                }
+                if(flag4 === 1) {
+                    this.game.time.events.add(Phaser.Timer.SECOND * Math.abs(a - p) /32 * 0.1, this.disappearobstacle, this, this.obstacle);
+                }
+            }
+        }
+    },
+
+    flicker: function (item) {
+        this.game.add.tween(item.scale).to({x: 0.3, y: 0.3}, 500).to({x: 1.0, y: 1.0}, 500).start().loop();
     },
 
     move: function() {
@@ -382,173 +716,37 @@ BasicGame.Gameadvanture.prototype = {
         }
     },
 
-    checkSurrounding: function() {
-        this.directionObject = [0, 0, 0, 0, 0];
+    releaseBerry: function() {
+        var x = Math.floor(this.player.x / 32) * 32 + 16;
+        var y = Math.floor(this.player.y / 32) * 32 + 16;
 
-        //Surrounded
-        this.marker.x = this.game.math.snapToFloor(Math.floor(this.player.x), 32) / 32;
-        this.marker.y = this.game.math.snapToFloor(Math.floor(this.player.y), 32) / 32;
-
-        var i = this.blockedLayer.index;
-        var x = this.marker.x;
-        var y = this.marker.y;
-
-        this.directions[1] = this.map.getTileLeft(i, x, y);
-        this.directions[2] = this.map.getTileRight(i, x, y);
-        this.directions[3] = this.map.getTileAbove(i, x, y);
-        this.directions[4] = this.map.getTileBelow(i, x, y);
-
-        var p = [(x - 1) * 32, y * 32];
-        var q = [(x + 1) * 32, y * 32];
-        var s = [x * 32, (y - 1) * 32];
-        var t = [x * 32, (y + 1) * 32];
-
-        for(i = 0;i < this.obstacles.length; i++) {
-            this.obstacle = this.obstacles.getAt(i);
-            var a = this.obstacle.x;
-            var b = this.obstacle.y;
-            var c = this.obstacle.alive;
+        //console.log(this.berries.length);
+        var flag = 0;
+        for(var i = 0;i < this.berries.length; i++) {
+            this.berryeach = this.berries.getAt(i);
+            var a = this.berryeach.x;
+            var b = this.berryeach.y;
+            var c = this.berryeach.alive;
 
             if(c === false) {
                 continue;
             }
 
-            if(a === p[0] && b === p[1]) {
-                this.directionObject[1] = 1;
-            }
-            if(a === q[0] && b === q[1]) {
-                this.directionObject[2] = 1;
-            }
-            if(a === s[0] && b === s[1]) {
-                this.directionObject[3] = 1;
-            }
-            if(a === t[0] && b === t[1]) {
-                this.directionObject[4] = 1;
+            if(x === a && y === b) {
+                flag = 1;
             }
         }
-    },
 
-    releaseBerry: function() {
-        var x = Math.floor(this.player.x / 32) * 32 + 16;
-        var y = Math.floor(this.player.y / 32) * 32 + 16;
-
-        if(this.fruitnumber > 0) {
+        if(this.fruitnumber > 0 && flag === 0) {
             var berry = this.berries.create(x, y, 'berry');
             berry.anchor.setTo(0.5, 0.5);
             var childIndex = this.berries.getChildIndex(berry);
             // Basic Timed Event
             this.game.add.tween(berry.scale).to({x: 0.3, y: 0.3}, 500).to({x: 1.0, y: 1.0}, 500).start().loop();
-            this.game.time.events.add(Phaser.Timer.SECOND * 2, this.explosioncross, this, x, y, berry);
+            //this.game.time.events.add(Phaser.Timer.SECOND * 2, this.explosioncross, this, x, y, berry);
+            this.game.time.events.add(Phaser.Timer.SECOND * 2, this.explosiontest, this, x, y, berry);
             this.fruitnumber--;
         }
-    },
-
-    explosion: function(x, y, berry) {
-        this.berries.remove(berry);
-
-        this.emitter.x = x;
-        this.emitter.y = y;
-
-        this.emitter.makeParticles('p_berry', 1, 10, true, true);
-        this.emitter.explode(500, 10);
-
-        this.fruitnumber++;
-    },
-
-    explosioncross: function(x, y, berry) {
-        this.berries.remove(berry);
-        this.fruitnumber++;
-
-        this.emitter1.x = x;
-        this.emitter1.y = y;
-        this.emitter1.start(true, this.emittertime, null, 1);
-        this.emitter2.x = x;
-        this.emitter2.y = y;
-        this.emitter2.start(true, this.emittertime, null, 1);
-        this.emitter3.x = x;
-        this.emitter3.y = y;
-        this.emitter3.start(true, this.emittertime, null, 1);
-        this.emitter4.x = x;
-        this.emitter4.y = y;
-        this.emitter4.start(true, this.emittertime, null, 1);
-    },
-
-    collisionHandler: function(berry, obstacle) {
-        if(obstacle.alive == true) {
-            var x = obstacle.x;
-            var y = obstacle.y;
-            this.game.time.events.add(Phaser.Timer.SECOND, this.additem, this, x, y, obstacle);
-        }
-        berry.kill();
-        obstacle.animations.play('explode', 6, false, true);
-        obstacle.alive = false;
-    },
-
-    additem: function(x, y) {
-        var z = this.game.rnd.integerInRange(1,10);
-        if(z >= 1 && z <= 2) {
-            var shoe = this.shoes.create(x + 16, y + 16, 'shoe');
-            shoe.anchor.setTo(0.5, 0.5);
-            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, shoe);
-            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, shoe);
-        }
-        else if(z >= 3 && z <= 4) {
-            var tree = this.trees.create(x + 16, y + 16, 'tree');
-            tree.anchor.setTo(0.5, 0.5);
-            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, tree);
-            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, tree);
-        }
-        else if(z >= 5 && z <= 6) {
-            var enhance = this.enhances.create(x + 16, y + 16, 'enhance');
-            enhance.anchor.setTo(0.5, 0.5);
-            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, enhance);
-            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, enhance);
-        }
-        else if(z >= 7 && z <= 8) {
-            var invincible = this.invincibles.create(x + 16, y + 16, 'invincible');
-            invincible.anchor.setTo(0.5, 0.5);
-            this.game.time.events.add(Phaser.Timer.SECOND * 3, this.flicker, this, invincible);
-            this.game.time.events.add(Phaser.Timer.SECOND * 5, this.disappear, this, invincible);
-        }
-    },
-
-    flicker: function (item) {
-        this.game.add.tween(item.scale).to({x: 0.3, y: 0.3}, 500).to({x: 1.0, y: 1.0}, 500).start().loop();
-    },
-
-    disappear: function (item) {
-        item.kill();
-    },
-
-    addnumbershoe: function(player, shoe) {
-        if(this.shoenumber < 4) {
-            this.shoenumber++;
-            this.numbershoe.text = this.shoenumber;
-            this.speed += 20;
-        }
-        shoe.kill();
-    },
-
-    addnumberenhance: function(player, enhance) {
-        this.enhancenumber++;
-        this.numberenhance.text = this.enhancenumber;
-        this.emittertime += 100;
-        enhance.kill();
-    },
-
-    addnumbertree: function(player, tree) {
-        this.treenumber++;
-        this.numbertree.text = this.treenumber;
-        this.fruitnumber++;
-        tree.kill();
-    },
-
-    addnumberinvincible: function(player, invincible) {
-        this.invinciblenumber = 1;
-        this.numberinvincible.text = this.invinciblenumber;
-        var tween = this.game.add.tween(this.player.scale).to({x: 0.8, y: 0.8}, 500).to({x: 1.0, y: 1.0}, 500).start().loop();
-        this.game.time.events.add(Phaser.Timer.SECOND * 5, this.stopinvincible, this,tween);
-        invincible.kill();
     },
 
     stopinvincible: function (tween) {
@@ -558,12 +756,12 @@ BasicGame.Gameadvanture.prototype = {
     },
 
     timer: function() {
-        this.time -= 1;
-        if(this.time === -1) {
+        if(100 - Math.floor(this.game.time.totalElapsedSeconds()) < 0) {
             this.quitGame();
         }
-        this.numbertime.text = this.time;
-        this.count = 0;
+        else {
+            this.numbertime.text = 100 - Math.floor(this.game.time.totalElapsedSeconds());
+        }
     },
 
     quitGame: function (pointer) {

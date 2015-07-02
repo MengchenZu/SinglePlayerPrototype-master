@@ -24,6 +24,7 @@ BasicGame.Preloader.prototype = {
         this.game.load.image('invincible','assets/invincible.png');
         this.game.load.image('shoe','assets/shoe.png');
         this.game.load.image('tree','assets/tree.png');
+        this.game.load.image('poison','assets/poison.png');
         this.game.load.image('clock','assets/clock.png');
 
 
